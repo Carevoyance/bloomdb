@@ -19,16 +19,17 @@ var fns = template.FuncMap{
 
 type upsertInfo struct {
 	Table   string
+        IdColumn string
 	Columns []string
 }
 
-func buildQuery(table string, columns []string) (string, error) {
+func buildQuery(table string, idColumn string, columns []string) (string, error) {
 	buf := new(bytes.Buffer)
 	t, err := template.New("upsert.sql.template").Funcs(fns).ParseFiles("sql/upsert.sql.template")
 	if err != nil {
 		return "", err
 	}
-	info := upsertInfo{table, columns}
+	info := upsertInfo{table, idColumn, columns}
 	err = t.Execute(buf, info)
 	if err != nil {
 		return "", err
@@ -36,8 +37,8 @@ func buildQuery(table string, columns []string) (string, error) {
 	return buf.String(), nil
 }
 
-func Upsert(db *sql.DB, table string, columns []string, rows chan []string) error {
-	query, err := buildQuery(table, columns)
+func Upsert(db *sql.DB, table string, idColumn string, columns []string, rows chan []string) error {
+	query, err := buildQuery(table, idColumn, columns)
 	if err != nil {
 		return err
 	}
