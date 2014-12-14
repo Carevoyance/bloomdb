@@ -6,6 +6,7 @@ import (
 	"github.com/lib/pq"
 	"text/template"
 	"fmt"
+        "strings"
 )
 
 var fns = template.FuncMap{
@@ -48,7 +49,11 @@ func Upsert(db *sql.DB, table string, idColumn string, columns []string, rows ch
 		return err
 	}
 
-	_, err = txn.Exec("CREATE TEMP TABLE " + table + "_temp(LIKE " + table + ") ON COMMIT DROP;")
+        // Can't create a temporary table inside a non-temporary schema, so just
+        // replace the periods, if present, with semicolons to avoid errors.
+        tempTable := strings.Replace(table, ".", "_", -1)        
+
+	_, err = txn.Exec("CREATE TEMP TABLE " + tempTable + "_temp(LIKE " + table + ") ON COMMIT DROP;")
 	if err != nil {
 		return err
 	}
