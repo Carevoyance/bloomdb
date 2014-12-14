@@ -19,18 +19,19 @@ var fns = template.FuncMap{
 }
 
 type upsertInfo struct {
-	Table   string
-        IdColumn string
-	Columns []string
+	Table     string
+        TempTable string
+        IdColumn  string
+	Columns   []string
 }
 
-func buildQuery(table string, idColumn string, columns []string) (string, error) {
+func buildQuery(table string, tempTable string, idColumn string, columns []string) (string, error) {
 	buf := new(bytes.Buffer)
 	t, err := template.New("upsert.sql.template").Funcs(fns).ParseFiles("sql/upsert.sql.template")
 	if err != nil {
 		return "", err
 	}
-	info := upsertInfo{table, idColumn, columns}
+	info := upsertInfo{table, tempTable, idColumn, columns}
 	err = t.Execute(buf, info)
 	if err != nil {
 		return "", err
@@ -39,7 +40,11 @@ func buildQuery(table string, idColumn string, columns []string) (string, error)
 }
 
 func Upsert(db *sql.DB, table string, idColumn string, columns []string, rows chan []string) error {
-	query, err := buildQuery(table, idColumn, columns)
+        // Can't create a temporary table inside a non-temporary schema, so just
+        // replace the periods, if present, with semicolons to avoid errors.
+        tempTable := strings.Replace(table, ".", "_", -1)        
+
+	query, err := buildQuery(table, tempTable, idColumn, columns)
 	if err != nil {
 		return err
 	}
@@ -49,16 +54,12 @@ func Upsert(db *sql.DB, table string, idColumn string, columns []string, rows ch
 		return err
 	}
 
-        // Can't create a temporary table inside a non-temporary schema, so just
-        // replace the periods, if present, with semicolons to avoid errors.
-        tempTable := strings.Replace(table, ".", "_", -1)        
-
 	_, err = txn.Exec("CREATE TEMP TABLE " + tempTable + "_temp(LIKE " + table + ") ON COMMIT DROP;")
 	if err != nil {
 		return err
 	}
 
-	stmt, err := txn.Prepare(pq.CopyIn(table+"_temp", columns...))
+	stmt, err := txn.Prepare(pq.CopyIn(tempTable+"_temp", columns...))
 	if err != nil {
 		return err
 	}
