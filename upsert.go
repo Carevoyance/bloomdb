@@ -136,7 +136,7 @@ func Upsert(db *sql.DB, table string, idColumn string, columns []string, rows ch
 		return err
 	}
 
-	log.Println("Analyzing table")
+	log.Println("Analyzing temporary table")
 	_, err = db.Exec("ANALYZE " + tempTable)
 
 	txn, err = db.Begin()
@@ -165,6 +165,13 @@ func Upsert(db *sql.DB, table string, idColumn string, columns []string, rows ch
 	if err != nil {
 		return err
 	}
+
+	log.Println("Analyzing updated table")
+	_, err = db.Exec("ANALYZE " + table)
+	if err != nil {
+		return err
+	}
+
 	log.Println("Done")
 	return nil
 }
